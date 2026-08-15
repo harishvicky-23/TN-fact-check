@@ -64,7 +64,8 @@ function App() {
     const timePeriodEscaped = encodeURIComponent(timePeriod)
 
     // Create EventSource to listen to Server-Sent Events (SSE)
-    const url = `http://127.0.0.1:8000/api/fact-check-stream?user_query=${userQueryEscaped}&time_period=${timePeriodEscaped}`
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+    const url = `${apiBaseUrl}/api/fact-check-stream?user_query=${userQueryEscaped}&time_period=${timePeriodEscaped}`
     const eventSource = new EventSource(url)
 
     eventSource.onmessage = (event) => {
