@@ -1,10 +1,11 @@
 from crewai import Task
 
 from agents.query_analyzer import query_analyzer
-from agents.researcher import news_researcher
+from agents.researcher import researcher
 from agents.verifier import fact_verifier
 from agents.report_writer import factcheck_report_writer
 
+from Models.models import FactCheckReport
 
 # --------------------------------------------------
 # Task 1: Analyze query
@@ -12,52 +13,48 @@ from agents.report_writer import factcheck_report_writer
 
 analyze_query_task = Task(
     description=(
-        "Analyze the user's query and break it down into specific, checkable "
-        "sub-claims and key questions. Identify all entities, events, organizations, "
-        "and dates involved. Determine the correct time window for research: if the "
-        "user specified a date or period, use exactly that; otherwise, target the "
-        "most recent information available as of {current_date}. Produce a focused "
-        "research plan with concrete, recency-biased search queries.\n\n"
-
+        "Analyze the user's query and break it down into specific, checkable sub-claims. Identify "
+        "all entities, events, organizations, and dates involved. Classify the query as HISTORICAL "
+        "(a settled past event, historical figure, or long-standing claim/myth -- e.g. a claim about "
+        "WWII or a historical rumor) or CURRENT (recent/ongoing, needs up-to-date information). "
+        "Determine the time window: for HISTORICAL claims use the relevant historical period; for "
+        "CURRENT claims, if the user specified a date/period use exactly that, otherwise target as of "
+        "{current_date}. Produce concrete search queries for each sub-claim: recency-biased terms for "
+        "current claims (e.g. 'latest', 'today', the relevant year/month), or precise historical/"
+        "reference terms for historical claims (e.g. exact names/dates, 'origin of', 'myth').\n\n"
         "The user's query is: {user_query}\n"
         "The user-specified time period (if any) is: {time_period}\n"
         "Today's date is: {current_date}"
     ),
-
     expected_output=(
-        "A research plan listing: "
-        "(1) the specific sub-claims/questions to verify, "
-        "(2) the exact entities/events/dates involved, "
-        "(3) the determined time window to search within, and "
-        "(4) concrete, recency-biased search queries for each sub-claim."
+        "A concise research brief listing: (1) the specific sub-claims to verify, (2) the exact "
+        "entities/events/dates involved, (3) whether the query is HISTORICAL or CURRENT and the "
+        "determined time window, and (4) 1-3 concrete search queries per sub-claim. No extra prose."
     ),
-
-    agent=query_analyzer
+    agent=query_analyzer,
 )
 
 
 # --------------------------------------------------
-# Task 2: Retrieve recent information
+# Task 2: Gather evidence
 # --------------------------------------------------
 
-retrieve_recent_info_task = Task(
+gather_evidence_task = Task(
     description=(
-        "Using the research plan, search the web and news sources for the most recent, "
-        "relevant information on every identified sub-claim and topic. Prioritize sources "
-        "published within the determined time window. Use recency-biased search terms and, "
-        "when the user gave no specific period, actively seek the latest available news, "
-        "actions, or developments rather than older background material. For every piece "
-        "of information gathered, record the source URL and its publish date, and scrape "
-        "the page when needed to confirm exact dates, figures, or quotes."
+        "Using the research brief, search for evidence on every sub-claim. For CURRENT sub-claims, "
+        "prioritize sources published within the determined time window using recency-biased search "
+        "terms. For HISTORICAL sub-claims, prioritize encyclopedic, archival, academic, or established "
+        "reference sources over blogs/forums, and specifically look for the origin and any documented "
+        "debunking if the claim resembles a known myth. For every finding, record the source title, "
+        "URL, publisher, and publish/last-updated date (or 'unknown' if undated). Gather 3-5 solid "
+        "sources per sub-claim -- stop once you have enough to verify, do not over-search. Scrape a "
+        "page only when the snippet doesn't confirm a date, figure, or quote."
     ),
-
     expected_output=(
-        "A detailed collection of research findings covering every sub-claim, each entry "
-        "including the finding itself, the source URL, and the source's publish date, "
-        "clearly separating the most recent findings from older/background context."
+        "For each sub-claim: the finding in 1-2 sentences, plus a short list of sources (title, URL, "
+        "publisher, date). Clearly mark whether each sub-claim was treated as HISTORICAL or CURRENT."
     ),
-
-    agent=news_researcher
+    agent=researcher,
 )
 
 
@@ -67,22 +64,20 @@ retrieve_recent_info_task = Task(
 
 verify_facts_task = Task(
     description=(
-        "Review all gathered research. For each claim or finding, verify it against "
-        "at least one independent, credible source. Identify conflicting information, "
-        "outdated claims, potential misinformation, or gaps that still need addressing. "
-        "Explicitly check whether each source's publish date falls within the required "
-        "time window; if a source is stale, search for a more recent update and note "
-        "whether the situation has changed."
+        "Review all gathered evidence. For each sub-claim, verify it against at least one additional "
+        "independent, credible source beyond what the researcher already found. Identify conflicting "
+        "information, outdated claims (superseded by newer developments, for CURRENT sub-claims), or "
+        "myths/misinformation (for HISTORICAL sub-claims). Check that each source is appropriate to "
+        "the claim's era -- recent, dated sources for current claims; reputable historical/academic "
+        "sources for historical ones. Assign each sub-claim a status: Verified, Partially Verified, "
+        "Unverified, Outdated, or False, and rate each source's reliability (High/Medium/Low)."
     ),
-
     expected_output=(
-        "A fact-verification summary that, for each sub-claim, states a status "
-        "(Verified / Partially Verified / Unverified / Outdated / False), the supporting "
-        "evidence, any conflicting claims found, a note on source recency and reliability, "
-        "and recommended corrections or additional research needed."
+        "For each sub-claim: a status (Verified/Partially Verified/Unverified/Outdated/False), a "
+        "1-3 sentence justification, and the sources used with a reliability rating each. Keep it "
+        "tight -- no repeated explanations."
     ),
-
-    agent=fact_verifier
+    agent=fact_verifier,
 )
 
 
@@ -92,20 +87,21 @@ verify_facts_task = Task(
 
 write_factcheck_report_task = Task(
     description=(
-        "Create a final fact-check report that directly answers the user's original query "
-        "using only the verified, up-to-date research. Lead with a clear overall verdict "
-        "(True / False / Misleading / Unverified / Needs More Context). Summarize the "
-        "supporting evidence in plain language, explicitly state how recent the underlying "
-        "information is using specific dates, and list every source used with its link "
-        "and publish date."
+        "Using the verified findings, produce the final fact-check report as structured data for "
+        "direct display in a frontend UI. Include: the original user query; whether the claim is "
+        "historical or current and the time window used; an overall verdict (True / False / "
+        "Misleading / Unverified / Needs More Context); a confidence level (High/Medium/Low); a 2-4 "
+        "sentence executive summary; a per-sub-claim breakdown with status, a short explanation, and "
+        "its sources; and a complete, deduplicated list of every source used across the whole "
+        "investigation, each with title, URL, publisher, date, reliability, and whether it confirms/"
+        "contradicts/partially confirms the claim. Only cite sources that were actually gathered "
+        "earlier in the pipeline -- never invent a source or URL. Today's date is {current_date}."
     ),
-
     expected_output=(
-        "A comprehensive, clearly structured fact-check report containing: "
-        "an overall verdict, an executive summary, a detailed evidence breakdown "
-        "per sub-claim, an explicit note on recency of information, and a complete "
-        "list of source citations with publish dates."
+        "A FactCheckReport object with every field populated: user_query, is_historical, "
+        "time_window_used, overall_verdict, confidence, executive_summary, sub_claims (each with "
+        "sub_claim, status, explanation, sources), all_sources (deduplicated), and report_generated_on."
     ),
-
-    agent=factcheck_report_writer
+    agent=factcheck_report_writer,
+    output_pydantic=FactCheckReport,
 )

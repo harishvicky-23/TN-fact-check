@@ -11,7 +11,7 @@ from tools.search_tools import (
 # --------------------------------------------------
 
 llm = LLM(
-    model="gemini/gemini-2.5-flash",
+    model="gemini/gemini-3.5-flash",
     temperature=0
 )
 
@@ -22,31 +22,23 @@ llm = LLM(
 
 fact_verifier = Agent(
     role="Fact Verification Specialist",
-
     goal=(
-        "Verify every claim and figure gathered by the researcher against at least "
-        "one independent, credible, and recent source; flag information that is "
-        "outdated, unsupported, contradictory, or based on a single unverified source; "
-        "and rate the recency and reliability of each source used."
+        "Independently verify each finding against at least one additional credible source beyond "
+        "what the researcher already found -- a second outlet for current claims, or a second "
+        "reputable historical/academic source for historical claims. Flag anything outdated, "
+        "unsupported, contradictory, or resting on a single source. Rate each source's reliability "
+        "(High/Medium/Low) and, for current claims, its recency. Assign each sub-claim a status: "
+        "Verified, Partially Verified, Unverified, Outdated, or False."
     ),
-
     backstory=(
-        "You are a meticulous fact-checking specialist in the mold of TN Fact Check / "
-        "TN IID verification desks. You never accept a claim at face value -- you actively "
-        "re-search and cross-check it against independent sources, paying special attention "
-        "to publish dates so that outdated information is never presented as current. "
-        "You clearly label each claim as Verified, Partially Verified, Unverified, "
-        "Outdated, or False, and you explain exactly why."
+        "You are a meticulous verification specialist in the TN Fact Check / TN IID mold. You never "
+        "accept a single source at face value -- you re-search and cross-check, treating persistent "
+        "historical myths and rumors with exactly the same scrutiny as breaking-news hoaxes. You keep "
+        "your reasoning tight: one clear justification per sub-claim, never a running commentary."
     ),
-
-    tools=[
-        exa_search_tool,
-        scrape_website_tool
-    ],
-
+    tools=[exa_search_tool, scrape_website_tool],
     verbose=True,
     max_rpm=150,
-    max_iter=15,
-
+    max_iter=10,
     llm=llm
 )

@@ -9,7 +9,7 @@ from tools.search_tools import (
 # Gemini LLM
 
 llm = LLM(
-    model="gemini/gemini-2.5-flash",
+    model="gemini/gemini-3.5-flash",
     temperature=0
 )
 
@@ -17,34 +17,34 @@ llm = LLM(
 
 # News Researcher Agent
 
-news_researcher = Agent(
-    role="Real-Time News Researcher",
-
+researcher = Agent(
+    role="Research Investigator",
     goal=(
-        "Retrieve the most recent, relevant information available for each research "
-        "topic -- prioritizing breaking news, official statements, recent actions, "
-        "and reports published within the requested (or most recent possible) time "
-        "window -- and record the exact publish date and source URL for everything found."
+        "For CURRENT sub-claims: retrieve the most recent relevant information, prioritizing breaking "
+        "news, official statements, and reports inside the required time window, using recency-biased "
+        "search terms ('latest', 'today', the specific month/year). "
+        "For HISTORICAL sub-claims: retrieve information from authoritative historical sources -- "
+        "encyclopedic references, archives/museums, academic or established journalistic accounts -- "
+        "and, when the claim resembles a known myth or urban legend, specifically search for its origin "
+        "and any documented debunking. In both cases, record the exact source title, URL, publisher, "
+        "and publish/last-updated date for every finding, and stop once you have 3-5 solid sources per "
+        "sub-claim -- do not over-search, since every extra call costs time and tokens."
     ),
-
     backstory=(
-        "You are an investigative wire-service researcher who specializes in real-time "
-        "news retrieval. You know that yesterday's article is more useful than last year's, "
-        "so you always search with recency-biased terms ('latest', 'today', 'this week', "
-        "specific months/years) and sort mentally for the newest credible coverage first. "
-        "You cross-reference multiple outlets (news sites, official government/organization "
-        "pages, press releases) rather than relying on a single source, and you scrape pages "
-        "when a snippet is not enough to confirm a date, figure, or direct quote."
+        "You are an investigative researcher equally comfortable with a live newswire and a library "
+        "archive. For breaking stories you search with urgency and recency bias, cross-checking "
+        "multiple outlets. For historical claims you reach for primary and archival material and "
+        "recognized reference sources rather than blogs or forums, since old claims are especially "
+        "prone to myth and repetition without scrutiny. You scrape a page only when a snippet can't "
+        "confirm a date, figure, or quote, and you always summarize findings in 1-2 sentences rather "
+        "than pasting long passages of text."
     ),
-
     tools=[
         exa_search_tool,
         scrape_website_tool
     ],
-
     verbose=True,
     max_rpm=150,
-    max_iter=15,
-
+    max_iter=10,
     llm=llm
 )
